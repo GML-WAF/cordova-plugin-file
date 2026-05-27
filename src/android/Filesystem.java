@@ -281,7 +281,14 @@ public abstract class Filesystem {
         long numBytesToRead = end - start;
         try {
             if (start > 0) {
-                ofrr.inputStream.skip(start);
+                long skipped = 0;
+                while (skipped < start) {
+                    long n = ofrr.inputStream.skip(start - skipped);
+                    if (n <= 0) {
+                        throw new IOException("Failed to skip to offset " + start);
+                    }
+                    skipped += n;
+                }
             }
             InputStream inputStream = ofrr.inputStream;
             if (end < ofrr.length) {
@@ -293,7 +300,7 @@ public abstract class Filesystem {
         }
     }
 
-    abstract long writeToFileAtURL(LocalFilesystemURL inputURL, String data, int offset,
+    abstract long writeToFileAtURL(LocalFilesystemURL inputURL, String data, long offset,
             boolean isBinary) throws NoModificationAllowedException, IOException;
 
     abstract long truncateFileAtURL(LocalFilesystemURL inputURL, long size)

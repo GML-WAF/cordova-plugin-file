@@ -307,8 +307,8 @@ public class FileUtils extends CordovaPlugin {
             threadhelper(new FileOp() {
                 public void run(JSONArray args) throws JSONException, MalformedURLException {
                     String encoding = args.getString(1);
-                    int start = args.getInt(2);
-                    int end = args.getInt(3);
+                    long start = args.getLong(2);
+                    long end = args.getLong(3);
                     String fname = args.getString(0);
                     readFileAs(fname, start, end, callbackContext, encoding, PluginResult.MESSAGE_TYPE_STRING);
                 }
@@ -316,8 +316,8 @@ public class FileUtils extends CordovaPlugin {
         } else if (action.equals("readAsDataURL")) {
             threadhelper(new FileOp() {
                 public void run(JSONArray args) throws JSONException, MalformedURLException {
-                    int start = args.getInt(1);
-                    int end = args.getInt(2);
+                    long start = args.getLong(1);
+                    long end = args.getLong(2);
                     String fname = args.getString(0);
                     readFileAs(fname, start, end, callbackContext, null, -1);
                 }
@@ -325,8 +325,8 @@ public class FileUtils extends CordovaPlugin {
         } else if (action.equals("readAsArrayBuffer")) {
             threadhelper(new FileOp() {
                 public void run(JSONArray args) throws JSONException, MalformedURLException {
-                    int start = args.getInt(1);
-                    int end = args.getInt(2);
+                    long start = args.getLong(1);
+                    long end = args.getLong(2);
                     String fname = args.getString(0);
                     readFileAs(fname, start, end, callbackContext, null, PluginResult.MESSAGE_TYPE_ARRAYBUFFER);
                 }
@@ -334,8 +334,8 @@ public class FileUtils extends CordovaPlugin {
         } else if (action.equals("readAsBinaryString")) {
             threadhelper(new FileOp() {
                 public void run(JSONArray args) throws JSONException, MalformedURLException {
-                    int start = args.getInt(1);
-                    int end = args.getInt(2);
+                    long start = args.getLong(1);
+                    long end = args.getLong(2);
                     String fname = args.getString(0);
                     readFileAs(fname, start, end, callbackContext, null, PluginResult.MESSAGE_TYPE_BINARYSTRING);
                 }
@@ -346,7 +346,7 @@ public class FileUtils extends CordovaPlugin {
                     String fname = args.getString(0);
                     String nativeURL = resolveLocalFileSystemURI(fname).getString("nativeURL");
                     String data = args.getString(1);
-                    int offset = args.getInt(2);
+                    long offset = args.getLong(2);
                     Boolean isBinary = args.getBoolean(3);
 
                     if (needPermission(nativeURL, WRITE)) {
@@ -362,7 +362,7 @@ public class FileUtils extends CordovaPlugin {
             threadhelper(new FileOp() {
                 public void run(JSONArray args) throws JSONException, FileNotFoundException, IOException, NoModificationAllowedException {
                     String fname = args.getString(0);
-                    int offset = args.getInt(1);
+                    long offset = args.getLong(1);
                     long fileSize = truncateFile(fname, offset);
                     callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, fileSize));
                 }
@@ -1062,7 +1062,7 @@ public class FileUtils extends CordovaPlugin {
      * @param resultType      The desired type of data to send to the callback.
      * @return Contents of file.
      */
-    public void readFileAs(final String srcURLstr, final int start, final int end, final CallbackContext callbackContext, final String encoding, final int resultType) throws MalformedURLException {
+    public void readFileAs(final String srcURLstr, final long start, final long end, final CallbackContext callbackContext, final String encoding, final int resultType) throws MalformedURLException {
         try {
             LocalFilesystemURL inputURL = LocalFilesystemURL.parse(srcURLstr);
             Filesystem fs = this.filesystemForURL(inputURL);
@@ -1133,7 +1133,7 @@ public class FileUtils extends CordovaPlugin {
      * @param isBinary True if the file contents are base64-encoded binary data
      */
     /**/
-    public long write(String srcURLstr, String data, int offset, boolean isBinary) throws FileNotFoundException, IOException, NoModificationAllowedException {
+    public long write(String srcURLstr, String data, long offset, boolean isBinary) throws FileNotFoundException, IOException, NoModificationAllowedException {
         try {
             LocalFilesystemURL inputURL = LocalFilesystemURL.parse(srcURLstr);
             Filesystem fs = this.filesystemForURL(inputURL);
@@ -1213,7 +1213,7 @@ public class FileUtils extends CordovaPlugin {
                         public void run(JSONArray args) throws JSONException, FileNotFoundException, IOException, NoModificationAllowedException {
                             String fname = args.getString(0);
                             String data = args.getString(1);
-                            int offset = args.getInt(2);
+                            long offset = args.getLong(2);
                             Boolean isBinary = args.getBoolean(3);
                             long fileSize = write(fname, data, offset, isBinary);
                             req.getCallbackContext().sendPluginResult(new PluginResult(PluginResult.Status.OK, fileSize));
