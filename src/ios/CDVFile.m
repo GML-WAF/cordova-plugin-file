@@ -20,7 +20,11 @@
 #import <Cordova/CDV.h>
 #import "CDVFile.h"
 #import "CDVLocalFilesystem.h"
+// AssetsLibrary was deprecated in iOS 9 and is unavailable when the app's
+// minimum deployment target is iOS 26 or later.
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < 260000
 #import "CDVAssetLibraryFilesystem.h"
+#endif
 #import <objc/message.h>
 
 static NSString* toBase64(NSData* data) {
@@ -89,9 +93,12 @@ NSString* const kCDVFilesystemURLPrefix = @"cdvfile";
         if (pathComponents != nil && pathComponents.count > 1) {
             return [pathComponents objectAtIndex:1];
         }
-    } else if ([[uri scheme] isEqualToString:kCDVAssetsLibraryScheme]) {
+    }
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < 260000
+    else if ([[uri scheme] isEqualToString:kCDVAssetsLibraryScheme]) {
         return @"assets-library";
     }
+#endif
     return nil;
 }
 
@@ -114,9 +121,12 @@ NSString* const kCDVFilesystemURLPrefix = @"cdvfile";
             return @"";
         }
         return [path substringFromIndex:slashRange.location];
-    } else if ([[uri scheme] isEqualToString:kCDVAssetsLibraryScheme]) {
+    }
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < 260000
+    else if ([[uri scheme] isEqualToString:kCDVAssetsLibraryScheme]) {
         return [[uri absoluteString] substringFromIndex:[kCDVAssetsLibraryScheme length]+2];
     }
+#endif
     return nil;
 }
 
@@ -238,18 +248,15 @@ NSString* const kCDVFilesystemURLPrefix = @"cdvfile";
     }
 }
 
-- (NSArray *)getExtraFileSystemsPreference:(UIViewController *)vc
+- (NSArray *)getExtraFileSystemsPreference
 {
-    NSString *filesystemsStr = nil;
-    if([self.viewController isKindOfClass:[CDVViewController class]]) {
-        CDVViewController *vc = (CDVViewController *)self.viewController;
-        NSDictionary *settings = [vc settings];
-        filesystemsStr = [settings[@"iosextrafilesystems"] lowercaseString];
+    NSString *extraFileSystems = [[self.viewController.settings objectForKey:@"iosextrafilesystems"] lowercaseString];
+
+    if (!extraFileSystems) {
+        extraFileSystems = @"library,library-nosync,documents,documents-nosync,cache,bundle,root";
     }
-    if (!filesystemsStr) {
-        filesystemsStr = @"library,library-nosync,documents,documents-nosync,cache,bundle,root";
-    }
-    return [filesystemsStr componentsSeparatedByString:@","];
+
+    return [extraFileSystems componentsSeparatedByString:@","];
 }
 
 - (void)makeNonSyncable:(NSString*)path {
@@ -322,17 +329,11 @@ NSString* const kCDVFilesystemURLPrefix = @"cdvfile";
     self.rootDocsPath = [paths objectAtIndex:0];
     self.appDocsPath = [self.rootDocsPath stringByAppendingPathComponent:@"files"];
 
+    NSString *persistentFileLocation = [[self.viewController.settings objectForKey:@"iospersistentfilelocation"] lowercaseString];
 
-    NSString *location = nil;
-    if([self.viewController isKindOfClass:[CDVViewController class]]) {
-        CDVViewController *vc = (CDVViewController *)self.viewController;
-        NSMutableDictionary *settings = vc.settings;
-        location = [[settings objectForKey:@"iospersistentfilelocation"] lowercaseString];
-    }
-    if (location == nil) {
-        // Compatibilty by default (if the config preference is not set, or
-        // if we're not embedded in a CDVViewController somehow.)
-        location = @"compatibility";
+    // Compatibilty by default (if the config preference is not set)
+    if (persistentFileLocation == nil) {
+        persistentFileLocation = @"compatibility";
     }
 
     NSError *error;
@@ -344,7 +345,7 @@ NSString* const kCDVFilesystemURLPrefix = @"cdvfile";
     } else {
         NSLog(@"Unable to create temporary directory: %@", error);
     }
-    if ([location isEqualToString:@"library"]) {
+    if ([persistentFileLocation isEqualToString:@"library"]) {
         if ([[NSFileManager defaultManager] createDirectoryAtPath:self.appLibraryPath
                                       withIntermediateDirectories:YES
                                                        attributes:nil
@@ -353,7 +354,7 @@ NSString* const kCDVFilesystemURLPrefix = @"cdvfile";
         } else {
             NSLog(@"Unable to create library directory: %@", error);
         }
-    } else if ([location isEqualToString:@"compatibility"]) {
+    } else if ([persistentFileLocation isEqualToString:@"compatibility"]) {
         /*
          *  Fall-back to compatibility mode -- this is the logic implemented in
          *  earlier versions of this plugin, and should be maintained here so
@@ -366,9 +367,11 @@ NSString* const kCDVFilesystemURLPrefix = @"cdvfile";
         NSAssert(false,
             @"File plugin configuration error: Please set iosPersistentFileLocation in config.xml to one of \"library\" (for new applications) or \"compatibility\" (for compatibility with previous versions)");
     }
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < 260000
     [self registerFilesystem:[[CDVAssetLibraryFilesystem alloc] initWithName:@"assets-library"]];
+#endif
 
-    [self registerExtraFileSystems:[self getExtraFileSystemsPreference:self.viewController]
+    [self registerExtraFileSystems:[self getExtraFileSystemsPreference]
                   fromAvailableSet:[self getAvailableFileSystems]];
 
 }
@@ -583,11 +586,18 @@ NSString* const kCDVFilesystemURLPrefix = @"cdvfile";
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 
-//encode path with percent escapes
+/**
+ * Encode a complete URI with percent escapes. Keep ':' unescaped so the
+ * cdvfile:// scheme remains recognizable after decoding an already-encoded URI.
+ */
 -(NSString *)encodePath:(NSString *)path
 {
-    NSString *decodedPath = [path stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding]; //decode incase it's already encoded to avoid encoding twice
-    return [decodedPath stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+    NSString *decodedPath = [path stringByRemovingPercentEncoding]; //decode incase it's already encoded to avoid encoding twice
+    NSMutableCharacterSet *allowedCharacters = [[NSCharacterSet URLPathAllowedCharacterSet] mutableCopy];
+    // URLPathAllowedCharacterSet would escape the ':' in the URI scheme,
+    // so we add it back to the allowed characters.
+    [allowedCharacters addCharactersInString:@":"];
+    return [decodedPath stringByAddingPercentEncodingWithAllowedCharacters:allowedCharacters];
 }
 
 
@@ -863,11 +873,10 @@ NSString* const kCDVFilesystemURLPrefix = @"cdvfile";
         [fs readFileAtURL:localURI start:start end:end callback:^(NSData* data, NSString* mimeType, CDVFileError errorCode) {
             CDVPluginResult* result = nil;
             if (data != nil) {
-                NSString* str = [[NSString alloc] initWithBytesNoCopy:(void*)[data bytes] length:[data length] encoding:NSUTF8StringEncoding freeWhenDone:NO];
+                NSString* str = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
                 // Check that UTF8 conversion did not fail.
                 if (str != nil) {
                     result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:str];
-                    result.associatedObject = data;
                 } else {
                     errorCode = ENCODING_ERR;
                 }
@@ -962,9 +971,8 @@ NSString* const kCDVFilesystemURLPrefix = @"cdvfile";
         [fs readFileAtURL:localURI start:start end:end callback:^(NSData* data, NSString* mimeType, CDVFileError errorCode) {
             CDVPluginResult* result = nil;
             if (data != nil) {
-                NSString* payload = [[NSString alloc] initWithBytesNoCopy:(void*)[data bytes] length:[data length] encoding:NSASCIIStringEncoding freeWhenDone:NO];
+                NSString* payload = [[NSString alloc] initWithData:data encoding:NSASCIIStringEncoding];
                 result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:payload];
-                result.associatedObject = data;
             } else {
                 result = [CDVPluginResult resultWithStatus:CDVCommandStatus_IO_EXCEPTION messageAsInt:errorCode];
             }
