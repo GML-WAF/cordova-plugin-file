@@ -54,7 +54,9 @@
         };
         // sanity check for 'not:valid:filename' or '/not:valid:filename'
         // file.spec.12 window.resolveLocalFileSystemURI should error (ENCODING_ERR) when resolving invalid URI with leading /.
-        if (!uri || uri.split(':').length > 2) {
+        // Electron on Windows: a drive letter (file:///C:/dir) is valid.
+        const colonCheckUri = (uri && cordova.platformId === 'electron') ? uri.replace(/^file:\/\/\/[A-Za-z]:/i, 'file:///') : uri;
+        if (!uri || colonCheckUri.split(':').length > 2) {
             setTimeout(function () {
                 fail(FileError.ENCODING_ERR);
             }, 0);

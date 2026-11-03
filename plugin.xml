@@ -224,4 +224,27 @@ to config.xml in order for the application to find previously stored files.
         </js-module>
     </platform>
 
+    <!-- electron -->
+    <platform name="electron">
+        <!-- Main process handler, registered as service "FileElectron" -->
+        <framework src="src/electron" custom="true" />
+
+        <js-module src="www/electron/FileProxy.js" name="electronFileProxy">
+            <runs />
+        </js-module>
+
+        <js-module src="www/electron/FileSystem.js" name="electronFileSystem">
+            <merges target="FileSystem" />
+        </js-module>
+
+        <js-module src="www/fileSystems-roots.js" name="fileSystems-roots">
+            <runs />
+        </js-module>
+
+        <js-module src="www/fileSystemPaths.js" name="fileSystemPaths">
+            <merges target="cordova" />
+            <runs />
+        </js-module>
+    </platform>
+
 </plugin>

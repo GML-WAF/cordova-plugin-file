@@ -8,6 +8,7 @@
     "platforms": [
       "android",
       "browser",
+      "electron",
       "ios"
     ]
   },
@@ -19,6 +20,7 @@
     "ecosystem:cordova",
     "cordova-android",
     "cordova-browser",
+    "cordova-electron",
     "cordova-ios"
   ],
   "scripts": {

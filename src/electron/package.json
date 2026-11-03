@@ -1,0 +1,10 @@
+{
+  "name": "cordova-plugin-file-electron-handler",
+  "version": "9.0.0-dev",
+  "description": "Main process handler of cordova-plugin-file for cordova-electron",
+  "main": "index.js",
+  "license": "Apache-2.0",
+  "cordova": {
+    "serviceName": "FileElectron"
+  }
+}
