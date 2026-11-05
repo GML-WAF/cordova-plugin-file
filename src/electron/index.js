@@ -138,7 +138,9 @@ function realForFullPath (fsObj, fullPath) {
         if (/^[A-Za-z]:$/.test(p)) p += '\\';
         return path.win32.normalize(/^[A-Za-z]:/.test(p) ? p : path.win32.join(sysDrive, p));
     }
-    return path.join(fsObj.root, fullPath);
+    // No path.join(root, '/') for the root itself: the trailing separator ("...\app.asar\")
+    // cannot be resolved by Electron's asar support, so the "application" filesystem would be missing.
+    return fullPath === '/' ? fsObj.root : path.join(fsObj.root, fullPath);
 }
 
 function location (fsObj, fullPath) {
